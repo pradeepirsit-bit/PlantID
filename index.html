@@ -30,7 +30,7 @@
             color: var(--text-main);
         }
 
-        /* 1. Fluid App Container */
+        /* Fluid App Container */
         .app-container {
             width: 100%;
             max-width: 1200px;
@@ -43,7 +43,7 @@
 
         header {
             background: var(--surface-color);
-            padding: 20px 24px;
+            padding: 16px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -54,9 +54,26 @@
         }
 
         .header-title { font-weight: 700; color: var(--primary); font-size: 1.4rem; }
-        .header-location { font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;}
+        
+        /* UPDATED: Location Button Styling */
+        .header-location-btn { 
+            font-size: 0.85rem; 
+            color: var(--text-main); 
+            display: flex; 
+            align-items: center; 
+            gap: 6px;
+            background: var(--bg-color);
+            border: 1px solid #E0E0E0;
+            padding: 6px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        .header-location-btn:hover { background: #E0E0E0; }
+        .header-location-btn:active { transform: scale(0.95); }
 
-        /* 2. Main Content Layout */
+        /* Main Content Layout */
         .main-content {
             display: flex;
             flex: 1;
@@ -132,7 +149,7 @@
             display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px;
         }
 
-        /* 3. Navigation - Desktop Default (Sidebar) */
+        /* Navigation */
         nav {
             width: 250px;
             background: #FAFAFA;
@@ -150,7 +167,7 @@
         .nav-item.active { color: var(--primary); font-weight: 600; border-left: 4px solid var(--primary); background: var(--primary-light); }
         .nav-icon { font-size: 1.2rem; }
 
-        /* 4. Mobile Responsive Breakpoint */
+        /* Mobile Responsive Breakpoint */
         @media (max-width: 768px) {
             .main-content { flex-direction: column; }
             .view-container { padding-bottom: 70px; }
@@ -173,7 +190,10 @@
 <div class="app-container">
     <header>
         <div class="header-title">🌿 TNSnap</div>
-        <div class="header-location">📍 Chennai, TN</div>
+        <button class="header-location-btn" onclick="app.updateLocation()">
+            <span id="loc-icon">📍</span> 
+            <span id="loc-text">Chennai, TN</span>
+        </button>
     </header>
 
     <div class="main-content">
@@ -311,15 +331,53 @@
                 </div>
             </main>
             
-        </div> </div> </div>
+        </div>
+    </div>
+</div>
 
 <script>
-/**
- * TNSnap Execution Framework
- */
 const app = {
     currentPlant: null,
     videoStream: null,
+    currentRegion: "Chennai, TN", // Global state for location
+
+    // UPDATED: Geolocation Logic
+    updateLocation() {
+        const locText = document.getElementById('loc-text');
+        const locIcon = document.getElementById('loc-icon');
+        
+        // Show loading state
+        locText.innerText = "Locating...";
+        locIcon.innerText = "⏳";
+        
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    // Extract exact coordinates
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    console.log(`Coords retrieved: ${lat}, ${lng}`);
+                    
+                    // Simulate an API call to a Geocoding service (like Google Maps API)
+                    setTimeout(() => {
+                        this.currentRegion = "Guindy, Chennai"; // Mocked reverse-geocode result
+                        locText.innerText = this.currentRegion;
+                        locIcon.innerText = "📍";
+                    }, 1200);
+                },
+                (error) => {
+                    console.warn("Location access denied or failed.", error);
+                    locText.innerText = "Location Disabled";
+                    locIcon.innerText = "⚠️";
+                    this.currentRegion = "Unknown Location";
+                },
+                { enableHighAccuracy: true, timeout: 5000 }
+            );
+        } else {
+            locText.innerText = "Unsupported";
+            locIcon.innerText = "❌";
+        }
+    },
 
     // Router and lifecycle controller
     navigateTo(viewId) {
@@ -334,7 +392,6 @@ const app = {
             }
         });
 
-        // WebRTC Hardware Isolation Lifecycle
         if (viewId === 'view-camera') {
             this.startCamera();
         } else {
@@ -342,7 +399,7 @@ const app = {
         }
     },
 
-    // Initialize WebRTC safe stream
+    // WebRTC logic
     async startCamera() {
         try {
             const video = document.getElementById('camera-stream');
@@ -357,7 +414,6 @@ const app = {
         }
     },
 
-    // Explicit stream termination to protect user privacy
     stopCamera() {
         if (this.videoStream) {
             this.videoStream.getTracks().forEach(track => track.stop());
@@ -365,7 +421,6 @@ const app = {
         }
     },
 
-    // Capture explicit data matrix from viewfinder canvas
     takeSnapshot() {
         const video = document.getElementById('camera-stream');
         const canvas = document.getElementById('snapshot-canvas');
@@ -391,7 +446,6 @@ const app = {
         }, 1500);
     },
 
-    // Populate dynamic taxonomy matrices
     showPlantMockData(plantKey) {
         const plantDatabase = {
             kuppaimeni: {
@@ -422,10 +476,10 @@ const app = {
         this.currentPlant = {
             ...target,
             dateDiscovered: new Date().toISOString().split('T')[0],
-            location: "Chennai, Tamil Nadu"
+            // Dynamically inject the location fetched from the header
+            location: this.currentRegion
         };
 
-        // Inject content into UI nodes
         document.getElementById('res-name').innerText = this.currentPlant.name;
         document.getElementById('res-scientific').innerText = this.currentPlant.scientific;
         document.getElementById('res-uses').innerHTML = `<strong>Contextual Info:</strong> ${this.currentPlant.uses}`;
@@ -437,7 +491,6 @@ const app = {
         this.navigateTo('view-result');
     },
 
-    // Direct Markdown export mechanics
     exportToMarkdown() {
         if (!this.currentPlant) return;
         const text = `---\ntags: [botany, tn-flora, verification]\ndate: ${this.currentPlant.dateDiscovered}\nlocation: ${this.currentPlant.location}\n---\n# ${this.currentPlant.name}\n\n- **Scientific Taxonomy:** *${this.currentPlant.scientific}*\n- **Ecological Status:** ${this.currentPlant.type}\n\n## Structural Summary\n${this.currentPlant.uses}\n`;
