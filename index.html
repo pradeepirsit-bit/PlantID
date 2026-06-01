@@ -7,6 +7,10 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2E7D32">
     <link rel="apple-touch-icon" href="icon.png">
+    
+    <!-- Leaflet.js Free Mapping Engine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
     <style>
         :root {
             --primary: #2E7D32;
@@ -50,12 +54,11 @@
             border-bottom: 1px solid #E0E0E0;
             position: sticky;
             top: 0;
-            z-index: 50;
+            z-index: 1000; /* Stay above map controls */
         }
 
         .header-title { font-weight: 700; color: var(--primary); font-size: 1.4rem; }
         
-        /* UPDATED: Location Button Styling */
         .header-location-btn { 
             font-size: 0.85rem; 
             color: var(--text-main); 
@@ -119,6 +122,31 @@
             cursor: pointer;
         }
 
+        /* Free Map Container Configuration */
+        .map-wrapper {
+            margin-bottom: 24px;
+            border: 1px solid #E0E0E0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        #tn-forest-map {
+            width: 100%;
+            height: 350px;
+            background: #CAD5E3;
+        }
+        .map-legend {
+            background: #fff;
+            padding: 10px 16px;
+            font-size: 0.8rem;
+            border-top: 1px solid #E0E0E0;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-color { width: 12px; height: 12px; border-radius: 3px; }
+
         .tag {
             display: inline-block; padding: 4px 8px; border-radius: 6px;
             font-size: 0.8rem; font-weight: 600; margin-bottom: 12px;
@@ -175,7 +203,7 @@
             nav {
                 width: 100%; height: 70px; flex-direction: row; position: fixed;
                 bottom: 0; left: 0; border-right: none; border-top: 1px solid #E0E0E0;
-                padding: 0; padding-bottom: env(safe-area-inset-bottom); z-index: 100;
+                padding: 0; padding-bottom: env(safe-area-inset-bottom); z-index: 1001;
             }
             .nav-item {
                 flex: 1; flex-direction: column; justify-content: center; gap: 4px;
@@ -197,6 +225,7 @@
     </header>
 
     <div class="main-content">
+        <!-- Navigation -->
         <nav>
             <div class="nav-item active" onclick="app.navigateTo('view-dashboard')" data-target="view-dashboard">
                 <span class="nav-icon">🏠</span><span>Dashboard</span>
@@ -211,6 +240,7 @@
 
         <div class="view-container">
             
+            <!-- VIEW: DASHBOARD -->
             <main id="view-dashboard" class="view active">
                 <div class="status-card">
                     <h2>Discover Native Flora</h2>
@@ -220,6 +250,18 @@
                 <button class="action-button btn-primary" onclick="app.navigateTo('view-camera')" style="margin-bottom: 24px;">
                     📷 Snap to Identify
                 </button>
+
+                <!-- NEW: TN Free Interactive Bio-Map Overlay -->
+                <h3 class="section-title">Tamil Nadu Ecological Map</h3>
+                <div class="map-wrapper">
+                    <div id="tn-forest-map"></div>
+                    <div class="map-legend">
+                        <div class="legend-item"><div class="legend-color" style="background: #1B5E20; opacity: 0.5;"></div> Dense Forest (Western Ghats)</div>
+                        <div class="legend-item"><div class="legend-color" style="background: #689F38; opacity: 0.4;"></div> Deciduous Scrub / Plains</div>
+                        <div class="legend-item">🟢 Native Spotted</div>
+                        <div class="legend-item">🔴 Invasive Flagged</div>
+                    </div>
+                </div>
 
                 <h3 class="section-title">Recent Local Discoveries</h3>
                 
@@ -240,6 +282,7 @@
                 </div>
             </main>
 
+            <!-- VIEW: CAMERA -->
             <main id="view-camera" class="view" style="padding: 0; position: relative;">
                 <video id="camera-stream" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1;"></video>
                 <canvas id="snapshot-canvas" style="display: none;"></canvas>
@@ -253,6 +296,7 @@
                 <div class="shutter" onclick="app.takeSnapshot()" style="z-index: 10;"></div>
             </main>
 
+            <!-- VIEW: RESULT -->
             <main id="view-result" class="view">
                 <button class="action-button" style="background: transparent; border: 1px solid #ccc; color: var(--text-main); width: auto; padding: 8px 16px;" onclick="app.navigateTo('view-dashboard')">
                     ← Back
@@ -279,6 +323,7 @@
                 <button class="action-button btn-export" onclick="app.exportToMarkdown()">📝 Export Note to Markdown</button>
             </main>
 
+            <!-- VIEW: ALMANAC -->
             <main id="view-almanac" class="view">
                 <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 20px;">Digital Herbarium</h2>
                 
@@ -302,6 +347,7 @@
                 </div>
             </main>
 
+            <!-- VIEW: SETTINGS -->
             <main id="view-settings" class="view">
                 <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 20px;">Settings</h2>
                 
@@ -335,51 +381,110 @@
     </div>
 </div>
 
+<!-- Leaflet.js Mapping Engine Script -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
 <script>
 const app = {
     currentPlant: null,
     videoStream: null,
-    currentRegion: "Chennai, TN", // Global state for location
+    currentRegion: "Chennai, TN",
+    map: null, // Leaflet Map Instance
 
-    // UPDATED: Geolocation Logic
+    // Initialize application layout and map elements
+    init() {
+        this.initMap();
+        
+        // PWA worker check
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.warn('PWA initialization delayed:', err));
+            });
+        }
+    },
+
+    // NEW: Completely free Leaflet map using OpenStreetMap data
+    initMap() {
+        if (this.map) return;
+
+        // Centered roughly over central Tamil Nadu coordinates
+        this.map = L.map('tn-forest-map', {
+            scrollWheelZoom: false
+        }).setView([11.1271, 78.6569], 7);
+
+        // Inject free map base layer tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(this.map);
+
+        // 1. Structural Layer: Western Ghats Shola Forest Coverage
+        L.polygon([
+            [11.50, 76.50], [11.30, 76.80], [10.20, 77.20], [9.50, 77.37], [8.40, 77.25],
+            [8.60, 77.50], [10.00, 77.50], [11.00, 77.10]
+        ], {
+            color: '#1B5E20', fillColor: '#1B5E20', fillOpacity: 0.25, weight: 1
+        }).addTo(this.map).bindPopup("<b>Western Ghats Shola & Evergreen Forest Zone</b><br>High concentration of native medicinal species.");
+
+        // 2. Structural Layer: Eastern Ghats Deciduous Scrub Cover
+        L.circle([11.85, 78.40], {
+            color: '#689F38', fillColor: '#689F38', fillOpacity: 0.2, radius: 45000
+        }).addTo(this.map).bindPopup("<b>Shevaroy / Eastern Ghats Deciduous Coverage</b>");
+
+        // 3. Plant Sighting Points (Interacts with results handler)
+        const plantSightings = [
+            { name: "Kuppaimeni (குப்பைமேனி)", lat: 13.0827, lng: 80.2707, type: "Native Medicinal", info: "Spotted in Chennai coastal scrub." },
+            { name: "Adathodai (ஆடாதோடை)", lat: 11.4102, lng: 76.6950, type: "Native Medicinal", info: "Identified in Nilgiris forest buffer zone." },
+            { name: "Seemai Karuvelam (சீமைக்கருவேலம்)", lat: 9.9252, lng: 78.1198, type: "Invasive Threat", info: "Flagged thicket invading Madurai arid basin." }
+        ];
+
+        plantSightings.forEach(sighting => {
+            const markerColor = sighting.type.includes("Invasive") ? "#E74C3C" : "#27AE60";
+            
+            L.circleMarker([sighting.lat, sighting.lng], {
+                radius: 8,
+                fillColor: markerColor,
+                color: "#fff",
+                weight: 2,
+                fillOpacity: 0.9
+            }).addTo(this.map).bindPopup(`<b>${sighting.name}</b><br>${sighting.type}<br><em>${sighting.info}</em>`);
+        });
+    },
+
     updateLocation() {
         const locText = document.getElementById('loc-text');
         const locIcon = document.getElementById('loc-icon');
-        
-        // Show loading state
         locText.innerText = "Locating...";
         locIcon.innerText = "⏳";
         
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    // Extract exact coordinates
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
-                    console.log(`Coords retrieved: ${lat}, ${lng}`);
                     
-                    // Simulate an API call to a Geocoding service (like Google Maps API)
                     setTimeout(() => {
-                        this.currentRegion = "Guindy, Chennai"; // Mocked reverse-geocode result
+                        this.currentRegion = "Guindy, Chennai";
                         locText.innerText = this.currentRegion;
                         locIcon.innerText = "📍";
+                        
+                        // Center map directly on user coordinate if dashboard is loaded
+                        if(this.map) {
+                            this.map.setView([lat, lng], 11);
+                            L.marker([lat, lng]).addTo(this.map).bindPopup("<b>Your Location</b>").openPopup();
+                        }
                     }, 1200);
                 },
                 (error) => {
-                    console.warn("Location access denied or failed.", error);
                     locText.innerText = "Location Disabled";
                     locIcon.innerText = "⚠️";
                     this.currentRegion = "Unknown Location";
                 },
                 { enableHighAccuracy: true, timeout: 5000 }
             );
-        } else {
-            locText.innerText = "Unsupported";
-            locIcon.innerText = "❌";
         }
     },
 
-    // Router and lifecycle controller
     navigateTo(viewId) {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
@@ -397,9 +502,13 @@ const app = {
         } else {
             this.stopCamera();
         }
+
+        // Fix Map sizing glitch when jumping between hidden view panels
+        if (viewId === 'view-dashboard' && this.map) {
+            setTimeout(() => this.map.invalidateSize(), 100);
+        }
     },
 
-    // WebRTC logic
     async startCamera() {
         try {
             const video = document.getElementById('camera-stream');
@@ -409,8 +518,7 @@ const app = {
             });
             video.srcObject = this.videoStream;
         } catch (err) {
-            console.error("Camera access blocked:", err);
-            alert("TNSnap requires access to the camera hardware to process images.");
+            alert("Camera initialization required to snap samples.");
         }
     },
 
@@ -476,7 +584,6 @@ const app = {
         this.currentPlant = {
             ...target,
             dateDiscovered: new Date().toISOString().split('T')[0],
-            // Dynamically inject the location fetched from the header
             location: this.currentRegion
         };
 
@@ -515,12 +622,8 @@ const app = {
     }
 };
 
-// Background Service Worker Registry
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(err => console.warn('PWA Worker execution skipped:', err));
-    });
-}
+// Fire initialization routine on document mount
+window.addEventListener('DOMContentLoaded', () => app.init());
 </script>
 </body>
 </html>
