@@ -122,17 +122,21 @@
             cursor: pointer;
         }
 
-        /* Free Map Container Configuration */
+        /* Dedicated Map Container Configuration */
         .map-wrapper {
             margin-bottom: 24px;
             border: 1px solid #E0E0E0;
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            height: 65vh; /* Expanded height for dedicated view */
+            min-height: 400px;
         }
         #tn-forest-map {
             width: 100%;
-            height: 350px;
+            flex: 1;
             background: #CAD5E3;
         }
         .map-legend {
@@ -185,6 +189,7 @@
             display: flex;
             flex-direction: column;
             padding: 24px 0;
+            overflow-y: auto;
         }
         .nav-item {
             padding: 16px 24px; display: flex; align-items: center; gap: 12px;
@@ -225,10 +230,14 @@
     </header>
 
     <div class="main-content">
-        <!-- Navigation -->
+        <!-- Navigation Sidebar / Bottom Bar -->
         <nav>
             <div class="nav-item active" onclick="app.navigateTo('view-dashboard')" data-target="view-dashboard">
                 <span class="nav-icon">🏠</span><span>Dashboard</span>
+            </div>
+            <!-- NEW: Dedicated Map Button -->
+            <div class="nav-item" onclick="app.navigateTo('view-map')" data-target="view-map">
+                <span class="nav-icon">🗺️</span><span>Eco Map</span>
             </div>
             <div class="nav-item" onclick="app.navigateTo('view-almanac')" data-target="view-almanac">
                 <span class="nav-icon">📖</span><span>Almanac</span>
@@ -251,18 +260,6 @@
                     📷 Snap to Identify
                 </button>
 
-                <!-- NEW: TN Free Interactive Bio-Map Overlay -->
-                <h3 class="section-title">Tamil Nadu Ecological Map</h3>
-                <div class="map-wrapper">
-                    <div id="tn-forest-map"></div>
-                    <div class="map-legend">
-                        <div class="legend-item"><div class="legend-color" style="background: #1B5E20; opacity: 0.5;"></div> Dense Forest (Western Ghats)</div>
-                        <div class="legend-item"><div class="legend-color" style="background: #689F38; opacity: 0.4;"></div> Deciduous Scrub / Plains</div>
-                        <div class="legend-item">🟢 Native Spotted</div>
-                        <div class="legend-item">🔴 Invasive Flagged</div>
-                    </div>
-                </div>
-
                 <h3 class="section-title">Recent Local Discoveries</h3>
                 
                 <div class="info-panel" style="display: flex; gap: 16px; align-items: center;" onclick="app.showPlantMockData('kuppaimeni')">
@@ -280,6 +277,23 @@
                         <p style="font-size: 0.85rem; color: var(--text-muted);">Prosopis juliflora • Click to inspect</p>
                     </div>
                 </div>
+            </main>
+
+            <!-- VIEW: MAP (Dedicated Tab) -->
+            <main id="view-map" class="view">
+                <h2 class="section-title" style="font-size: 1.5rem; margin-bottom: 20px;">Tamil Nadu Ecological Map</h2>
+                
+                <div class="map-wrapper">
+                    <div id="tn-forest-map"></div>
+                    <div class="map-legend">
+                        <div class="legend-item"><div class="legend-color" style="background: #1B5E20; opacity: 0.5;"></div> Dense Forest (Western Ghats)</div>
+                        <div class="legend-item"><div class="legend-color" style="background: #689F38; opacity: 0.4;"></div> Deciduous Scrub / Plains</div>
+                        <div class="legend-item">🟢 Native Spotted</div>
+                        <div class="legend-item">🔴 Invasive Flagged</div>
+                    </div>
+                </div>
+                
+                <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">Explore established forest covers and recent community sightings.</p>
             </main>
 
             <!-- VIEW: CAMERA -->
@@ -389,13 +403,11 @@ const app = {
     currentPlant: null,
     videoStream: null,
     currentRegion: "Chennai, TN",
-    map: null, // Leaflet Map Instance
+    map: null,
 
-    // Initialize application layout and map elements
     init() {
         this.initMap();
         
-        // PWA worker check
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js').catch(err => console.warn('PWA initialization delayed:', err));
@@ -403,22 +415,18 @@ const app = {
         }
     },
 
-    // NEW: Completely free Leaflet map using OpenStreetMap data
     initMap() {
         if (this.map) return;
 
-        // Centered roughly over central Tamil Nadu coordinates
         this.map = L.map('tn-forest-map', {
             scrollWheelZoom: false
         }).setView([11.1271, 78.6569], 7);
 
-        // Inject free map base layer tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '© OpenStreetMap contributors'
         }).addTo(this.map);
 
-        // 1. Structural Layer: Western Ghats Shola Forest Coverage
         L.polygon([
             [11.50, 76.50], [11.30, 76.80], [10.20, 77.20], [9.50, 77.37], [8.40, 77.25],
             [8.60, 77.50], [10.00, 77.50], [11.00, 77.10]
@@ -426,12 +434,10 @@ const app = {
             color: '#1B5E20', fillColor: '#1B5E20', fillOpacity: 0.25, weight: 1
         }).addTo(this.map).bindPopup("<b>Western Ghats Shola & Evergreen Forest Zone</b><br>High concentration of native medicinal species.");
 
-        // 2. Structural Layer: Eastern Ghats Deciduous Scrub Cover
         L.circle([11.85, 78.40], {
             color: '#689F38', fillColor: '#689F38', fillOpacity: 0.2, radius: 45000
         }).addTo(this.map).bindPopup("<b>Shevaroy / Eastern Ghats Deciduous Coverage</b>");
 
-        // 3. Plant Sighting Points (Interacts with results handler)
         const plantSightings = [
             { name: "Kuppaimeni (குப்பைமேனி)", lat: 13.0827, lng: 80.2707, type: "Native Medicinal", info: "Spotted in Chennai coastal scrub." },
             { name: "Adathodai (ஆடாதோடை)", lat: 11.4102, lng: 76.6950, type: "Native Medicinal", info: "Identified in Nilgiris forest buffer zone." },
@@ -468,7 +474,7 @@ const app = {
                         locText.innerText = this.currentRegion;
                         locIcon.innerText = "📍";
                         
-                        // Center map directly on user coordinate if dashboard is loaded
+                        // Center map directly on user coordinate if map is loaded
                         if(this.map) {
                             this.map.setView([lat, lng], 11);
                             L.marker([lat, lng]).addTo(this.map).bindPopup("<b>Your Location</b>").openPopup();
@@ -503,9 +509,9 @@ const app = {
             this.stopCamera();
         }
 
-        // Fix Map sizing glitch when jumping between hidden view panels
-        if (viewId === 'view-dashboard' && this.map) {
-            setTimeout(() => this.map.invalidateSize(), 100);
+        // Trigger Leaflet engine reflow when switching to the Map view panel
+        if (viewId === 'view-map' && this.map) {
+            setTimeout(() => this.map.invalidateSize(), 150);
         }
     },
 
@@ -622,7 +628,6 @@ const app = {
     }
 };
 
-// Fire initialization routine on document mount
 window.addEventListener('DOMContentLoaded', () => app.init());
 </script>
 </body>
